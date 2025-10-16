@@ -19,19 +19,57 @@ import startupImage from './images/startup-image.png';
 import businessImage from './images/existing-business-image.png';
 import investorImage from './images/investor-image.png';
 import roleSelectionBackground from './images/role-selection-homepage.jpg';
+import ResetPassword from './ResetPassword';
+import { canAccessFeature } from './utils/permissions';
 
 // Use environment variable for API base URL
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Dashboard Navigation
 const DashboardNav = ({ currentUser, onSignOut, activeTab, setActiveTab, unreadMessages }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'matches', label: 'Matches', icon: UsersIcon },
+    { id: 'suggested', label: 'Suggested', icon: Target },
+    { id: 'messages', label: 'Messages', icon: MessageIcon },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'profile', label: 'Profile', icon: UserIcon },
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'upgrade', label: 'Upgrade', icon: Star }
+  ];
+
   return (
     <div className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Left side - Logo */}
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-indigo-600">BITE</h1>
           </div>
+          
+          {/* Center - Navigation Tabs */}
+          <div className="hidden md:flex space-x-8">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center space-x-1 text-sm font-medium ${
+                    activeTab === item.id 
+                      ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          
+          {/* Right side - User actions */}
           <div className="flex items-center">
             <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 relative">
               <Bell className="w-6 h-6" />
@@ -54,6 +92,29 @@ const DashboardNav = ({ currentUser, onSignOut, activeTab, setActiveTab, unreadM
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
+          </div>
+        </div>
+        
+        {/* Mobile navigation - visible on small screens */}
+        <div className="md:hidden border-t border-gray-200">
+          <div className="flex overflow-x-auto py-2 space-x-6">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex flex-col items-center space-y-1 min-w-max ${
+                    activeTab === item.id 
+                      ? 'text-indigo-600' 
+                      : 'text-gray-500'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs">{item.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -185,6 +246,142 @@ const MessagesView = ({ currentUser }) => {
   );
 };
 
+// Reset Password Page Component
+const ResetPasswordPage = ({ onBackToMain }) => {
+  const [token, setToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Extract token from URL on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const resetToken = urlParams.get('token');
+    if (resetToken) {
+      setToken(resetToken);
+    } else {
+      setError('Invalid or missing reset token');
+    }
+  }, []);
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess(false);
+
+    // Validate passwords
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccess(true);
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          onBackToMain();
+        }, 3000);
+      } else {
+        setError(data.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful!</h2>
+          <p className="text-gray-600 mb-6">
+            Your password has been updated. Redirecting to login...
+          </p>
+          <button
+            onClick={onBackToMain}
+            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <button onClick={onBackToMain} className="text-indigo-600 hover:text-indigo-800 font-medium mb-4 flex items-center">
+            <ArrowRight className="w-4 h-4 mr-1 rotate-180" /> Back to Login
+          </button>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Reset Your Password</h2>
+          <p className="text-gray-600">Enter your new password below</p>
+        </div>
+        <form onSubmit={handleResetPassword} className="space-y-6">
+          {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading || !token}
+            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Resetting Password...' : 'Reset Password'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Search View
 const AdvancedSearchView = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -253,25 +450,32 @@ const AdvancedSearchView = ({ currentUser }) => {
   );
 };
 
-// Dashboard View - REAL DATA VERSION
+// Enhanced Dashboard View with Tier-Based Access
 const DashboardView = ({ currentUser, setActiveTab }) => {
   const [stats, setStats] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  if (!currentUser) {
+  return <div className="p-12 text-center">Please log in to view dashboard</div>;
+}
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        
         // Fetch stats
         const statsRes = await fetch(`${API_BASE}/dashboard/stats`, {
           headers: { Authorization: `Bearer ${currentUser.token}` }
         });
         const statsData = await statsRes.json();
+
         // Fetch activity
         const activityRes = await fetch(`${API_BASE}/dashboard/activity`, {
           headers: { Authorization: `Bearer ${currentUser.token}` }
         });
         const activityData = await activityRes.json();
+
         setStats(statsData);
         setRecentActivity(activityData);
         setLoading(false);
@@ -280,22 +484,66 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
         setLoading(false);
       }
     };
-    fetchDashboardData();
-  }, [currentUser.token]);
+
+    // Only fetch if currentUser exists
+    if (currentUser) {
+      fetchDashboardData();
+    }
+  }, [currentUser]); // Add currentUser as dependency
 
   if (loading) {
     return <div className="p-12 text-center">Loading dashboard...</div>;
   }
+
   if (!stats) {
     return <div className="p-12 text-center text-red-500">Failed to load dashboard data</div>;
   }
 
+  // Tier-based stat items
   const statItems = [
     { name: 'Total Matches', value: stats.totalMatches, icon: UsersIcon, change: '+0', changeType: 'positive' },
     { name: 'Active Conversations', value: stats.activeConversations, icon: MessageIcon, change: '+0', changeType: 'positive' },
     { name: 'Profile Views', value: stats.profileViews, icon: Eye, change: '+0', changeType: 'positive' },
     { name: 'Compatibility Score', value: stats.compatibilityScore, icon: Target, change: '+0%', changeType: 'positive' }
   ];
+
+  // Tier-based quick actions
+  const getQuickActions = () => {
+    const actions = [
+      { id: 'matches', label: 'Find Matches', icon: UsersIcon, feature: 'basic_matching' },
+      { id: 'messages', label: 'Messages', icon: MessageIcon, feature: 'text_chat' },
+      { id: 'search', label: 'Search', icon: Search, feature: 'search' },
+      { id: 'profile', label: 'Profile', icon: UserIcon, feature: 'view_profiles' }
+    ];
+
+    // Add tier-specific actions
+  if (currentUser) {
+    if (canAccessFeature(currentUser, 'video_calls')) {
+      actions.push({ id: 'video', label: 'Video Calls', icon: Video, feature: 'video_calls' });
+    }
+    if (canAccessFeature(currentUser, 'analytics')) {
+      actions.push({ id: 'analytics', label: 'Analytics', icon: BarChart3, feature: 'analytics' });
+    }
+    if (canAccessFeature(currentUser, 'project_management')) {
+      actions.push({ id: 'projects', label: 'Projects', icon: Briefcase, feature: 'project_management' });
+    }
+  }
+    return actions;
+  };
+
+  // Tier-based recent activity
+  const filteredActivity = recentActivity.filter(activity => {
+    // Only filter if currentUser exists
+    if (!currentUser) return true;
+    
+    if (activity.type === 'message' && !canAccessFeature(currentUser, 'text_chat')) {
+      return false;
+    }
+    if (activity.type === 'match' && !canAccessFeature(currentUser, 'basic_matching')) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -341,8 +589,8 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
           <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
         </div>
         <div className="divide-y divide-gray-200">
-          {recentActivity.length > 0 ? (
-            recentActivity.map((activity) => (
+          {filteredActivity.length > 0 ? (
+            filteredActivity.map((activity) => (
               <div key={activity.id} className="px-6 py-4 flex items-center">
                 <div className="flex-shrink-0">
                   {activity.icon === 'UsersIcon' ? <UsersIcon className="h-5 w-5 text-gray-400" /> : <MessageIcon className="h-5 w-5 text-gray-400" />}
@@ -365,46 +613,48 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Tier Based */}
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => setActiveTab('matches')} 
-            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            <UsersIcon className="h-6 w-6 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Find Matches</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('messages')} 
-            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            <MessageIcon className="h-6 w-6 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Messages</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('search')} 
-            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            <Search className="h-6 w-6 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Search</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('profile')} 
-            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            <Settings className="h-6 w-6 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Settings</span>
-          </button>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {getQuickActions().map((action) => (
+            <button 
+              key={action.id}
+              onClick={() => setActiveTab(action.id)}
+              className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <action.icon className="h-6 w-6 text-indigo-600 mb-2" />
+              <span className="text-sm font-medium text-gray-700">{action.label}</span>
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Tier Upgrade Banner (for free users) */}
+      {currentUser.tier === 'free' && (
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="mb-4 md:mb-0">
+              <h3 className="text-lg font-semibold">Unlock Premium Features!</h3>
+              <p className="text-indigo-100 mt-1">
+                Upgrade to access video calls, advanced analytics, and more!
+              </p>
+            </div>
+            <button 
+              onClick={() => setActiveTab('upgrade')}
+              className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition-colors"
+            >
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // Main Homepage (ORIGINAL UI)
-const MainHomepage = ({ onSignUp, onSignIn }) => {
+const MainHomepage = ({ onSignUp, onSignIn, onForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -432,25 +682,21 @@ const MainHomepage = ({ onSignUp, onSignIn }) => {
     }
   };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotPasswordEmail })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setForgotPasswordSuccess(true);
-      } else {
-        setError(data.error || 'Failed to send reset email');
-      }
-    } catch (err) {
-      setError('Network error. Please try again.');
-    }
-  };
+// Frontend only sends email request to backend
+const handleForgotPassword = async (e) => {
+  e.preventDefault();
+  try {
+    // Send request to YOUR backend
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotPasswordEmail })
+    });
+    // Backend handles the actual email sending
+  } catch (err) {
+    setError('Network error. Please try again.');
+  }
+};
 
   return (
     <div 
@@ -504,7 +750,7 @@ const MainHomepage = ({ onSignUp, onSignIn }) => {
                 <div className="text-right">
                   <button
                     type="button"
-                    onClick={() => setIsForgotPassword(true)}
+                    onClick={onForgotPassword}
                     className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                   >
                     Forgot password?
@@ -961,14 +1207,32 @@ const TierSelection = ({ selectedRole, onTierSelect, onBack }) => {
 const PaymentForm = ({ tier, onPaymentSuccess, onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsProcessing(true);
+  
+  try {
+    const res = await fetch(`${API_BASE}/payments/success`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentUser?.token || localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ tier: tier.id })
+    });
+    
+    const data = await res.json();
+    if (res.ok) {
       onPaymentSuccess();
-    }, 1500);
-  };
+    } else {
+      alert(data.error || 'Payment processing failed');
+    }
+  } catch (error) {
+    alert('Network error during payment processing');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -1027,7 +1291,7 @@ const BasicInfoForm = ({ onBack, onSubmit, selectedRole, selectedTier }) => {
     if (Object.values(formValues).every(value => value.trim()) && formValues.password === formValues.confirmPassword) {
       // Remove confirmPassword before submitting
       const { confirmPassword, ...submitData } = formValues;
-      onSubmit(submitData);
+      onSubmit({ ...submitData, tier: selectedTier?.id });
     }
   };
 
@@ -1058,7 +1322,7 @@ const BasicInfoForm = ({ onBack, onSubmit, selectedRole, selectedTier }) => {
 };
 
 // Opportunities Form (REAL REGISTRATION) - FIXED FOR ALL ROLES
-const OpportunitiesForm = ({ onBack, onSubmit, selectedRole, formData }) => {
+const OpportunitiesForm = ({ onBack, onSubmit, selectedRole, selectedTier, formData }) => {
   const [opportunitiesData, setOpportunitiesData] = useState({});
 
   const handleSubmit = async (e) => {
@@ -1069,6 +1333,7 @@ const OpportunitiesForm = ({ onBack, onSubmit, selectedRole, formData }) => {
       role: selectedRole,
       fullName: formData.fullName,
       location: `${formData.city}, ${formData.country}`,
+      tier: formData.tier || selectedTier?.id || 'free',
       ...opportunitiesData
     };
     try {
@@ -1149,7 +1414,7 @@ const App = () => {
   const [formData, setFormData] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const unreadMessages = useMemo(() => 0, [currentUser]);
 
   // Restore session on load
@@ -1214,42 +1479,145 @@ const App = () => {
     setFormData({});
   };
 
+  // Update your renderCurrentView function
   const renderCurrentView = () => {
-    if (currentView === 'main-homepage') {
-      return <MainHomepage onSignUp={handleSignUp} onSignIn={handleSignIn} />;
-    } else if (currentView === 'dashboard') {
-      return (
-        <div className="min-h-screen bg-gray-50">
-          <DashboardNav 
-            currentUser={currentUser} 
-            onSignOut={handleSignOut} 
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            unreadMessages={unreadMessages}
-          />
-          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <div className="px-4 sm:px-0">
-              {activeTab === 'dashboard' && <DashboardView currentUser={currentUser} setActiveTab={setActiveTab} />}
-              {activeTab === 'messages' && <MessagesView currentUser={currentUser} />}
-              {activeTab === 'search' && <AdvancedSearchView currentUser={currentUser} />}
-              {activeTab === 'profile' && <div className="bg-white shadow rounded-lg p-6"><h2 className="text-lg font-medium text-gray-900">Profile</h2><p>Email: {currentUser?.email}</p></div>}
-            </div>
+   if (showResetPassword) {
+    return <ResetPassword onBackToLogin={() => setShowResetPassword(false)} />;
+  }
+
+  if (currentView === 'main-homepage') {
+    return <MainHomepage 
+      onSignUp={handleSignUp} 
+      onSignIn={handleSignIn} 
+      onForgotPassword={() => setShowResetPassword(true)} 
+    />;
+  } else if (currentView === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardNav 
+          currentUser={currentUser} 
+          onSignOut={handleSignOut} 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          unreadMessages={unreadMessages}
+        />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-0">
+            {activeTab === 'dashboard' && <DashboardView currentUser={currentUser} setActiveTab={setActiveTab} />}
+
+            {activeTab === 'messages' && <MessagesView currentUser={currentUser} />}
+
+            {activeTab === 'search' && <AdvancedSearchView currentUser={currentUser} />}
+
+            {activeTab === 'upgrade' && <UpgradeView currentUser={currentUser} onBack={() => setActiveTab('dashboard')} />}
+
+            {activeTab === 'profile' && <div className="bg-white shadow rounded-lg p-6"><h2 className="text-lg font-medium text-gray-900">Profile</h2><p>Email: {currentUser?.email}</p></div>}
           </div>
         </div>
-      );
-    } else {
-      switch (currentStep) {
-        case 'role-selection': return <RoleSelection onRoleSelect={handleRoleSelect} onBackToMain={handleBackToMain} />;
-        case 'tier-selection': return <TierSelection selectedRole={selectedRole} onTierSelect={handleTierSelect} onBack={() => setCurrentStep('role-selection')} />;
-        case 'payment': return <PaymentForm tier={selectedTier} onPaymentSuccess={handlePaymentSuccess} onBack={() => setCurrentStep('tier-selection')} />;
-        case 'basic-info': return <BasicInfoForm onBack={() => setCurrentStep(selectedTier?.requiresPayment ? 'payment' : 'tier-selection')} onSubmit={handleBasicInfoSubmit} selectedRole={selectedRole} selectedTier={selectedTier} />;
-        case 'opportunities': return <OpportunitiesForm onBack={() => setCurrentStep('basic-info')} onSubmit={handleOpportunitiesSubmit} selectedRole={selectedRole} formData={formData} />;
-        default: return <RoleSelection onRoleSelect={handleRoleSelect} onBackToMain={handleBackToMain} />;
+      </div>
+    );
+  } else {
+    switch (currentStep) {
+      case 'role-selection': return <RoleSelection onRoleSelect={handleRoleSelect} onBackToMain={handleBackToMain} />;
+      case 'tier-selection': return <TierSelection selectedRole={selectedRole} onTierSelect={handleTierSelect} onBack={() => setCurrentStep('role-selection')} />;
+      case 'payment': return <PaymentForm tier={selectedTier} onPaymentSuccess={handlePaymentSuccess} onBack={() => setCurrentStep('tier-selection')} />;
+      case 'basic-info': return <BasicInfoForm onBack={() => setCurrentStep(selectedTier?.requiresPayment ? 'payment' : 'tier-selection')} onSubmit={handleBasicInfoSubmit} selectedRole={selectedRole} selectedTier={selectedTier} />;
+      case 'opportunities': return <OpportunitiesForm onBack={() => setCurrentStep('basic-info')} onSubmit={handleOpportunitiesSubmit} selectedRole={selectedRole} selectedTier={selectedTier} formData={formData} />;
+      default: return <RoleSelection onRoleSelect={handleRoleSelect} onBackToMain={handleBackToMain} />;
+    }
+  }
+};
+
+  return renderCurrentView();
+};
+
+// Upgrade View Component
+const UpgradeView = ({ currentUser, onBack }) => {
+  const handleUpgrade = async (tier) => {
+    try {
+      const response = await fetch(`${API_BASE}/users/upgrade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        },
+        body: JSON.stringify({ tier })
+      });
+
+      if (response.ok) {
+        // Refresh user data
+        const updatedUser = await response.json();
+        onBack(updatedUser);
       }
+    } catch (error) {
+      console.error('Upgrade failed:', error);
     }
   };
 
-  return renderCurrentView();
+  // Get available tiers based on current role
+  const getAvailableTiers = () => {
+    const tierMap = {
+      student: [
+        { id: 'pro', name: 'Pro Student', price: '$4.99/month', features: ['Unlimited chats', 'Video calls', 'Verified badge'] },
+        { id: 'career-plus', name: 'Career+', price: '$9.99/month', features: ['Priority pairing', 'Career analytics', 'Global certificate'] }
+      ],
+      startup: [
+        { id: 'scale-faster', name: 'Scale Faster', price: '$19.99/month', features: ['Unlimited matches', 'Post real projects', 'Verified profile'] },
+        { id: 'pro-founder', name: 'Pro Founder', price: '$39.99/month', features: ['Meet real investors', 'Tailored student matching'] }
+      ],
+      business: [
+        { id: 'talent-plus', name: 'Talent+', price: '$19.99/month', features: ['Internship pipeline', 'Global student access', 'Analytics dashboard'] },
+        { id: 'investor-plus', name: 'Investor+', price: '$39.99/month', features: ['All Talent+ features', 'Verified student profiles'] }
+      ],
+      investor: [
+        { id: 'explorer', name: 'Explorer', price: '$24.99/month', features: ['Browse all profiles', 'Direct messaging', 'Investment analytics'] },
+        { id: 'pro-investor', name: 'Pro Investor', price: '$49.99/month', features: ['Priority access', 'Video calls', 'Portfolio tracking'] }
+      ]
+    };
+    
+    return tierMap[currentUser.role] || [];
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Upgrade Your Account</h2>
+          <button 
+            onClick={onBack}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {getAvailableTiers().map((tier) => (
+            <div key={tier.id} className="border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">{tier.name}</h3>
+                <span className="text-2xl font-bold text-indigo-600">{tier.price}</span>
+              </div>
+              <ul className="space-y-2 mb-6">
+                {tier.features.map((feature, index) => (
+                  <li key={index} className="flex items-center text-gray-700">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleUpgrade(tier.id)}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Upgrade to {tier.name}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default App;

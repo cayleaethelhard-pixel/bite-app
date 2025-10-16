@@ -1,15 +1,14 @@
+// src/ResetPassword.js
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, ArrowRight } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
 
-const ResetPassword = () => {
+const ResetPassword = ({ onBackToLogin }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [token, setToken] = useState('');
-  
-  const navigate = useNavigate();
 
   // Get token from URL query parameters
   useEffect(() => {
@@ -40,7 +39,7 @@ const ResetPassword = () => {
       if (response.ok) {
         setSuccess(true);
         // Redirect to login after 3 seconds
-        setTimeout(() => navigate('/'), 3000);
+        setTimeout(() => onBackToLogin(), 3000);
       } else {
         setError(data.error || 'Failed to reset password');
       }
@@ -56,7 +55,7 @@ const ResetPassword = () => {
           <h2 className="text-xl font-bold text-red-600 mb-4">Invalid Reset Link</h2>
           <p className="text-gray-600">The password reset link is invalid or has expired.</p>
           <button 
-            onClick={() => navigate('/')}
+            onClick={onBackToLogin}
             className="mt-4 text-indigo-600 hover:text-indigo-800 font-medium"
           >
             ← Back to Login
@@ -128,7 +127,7 @@ const ResetPassword = () => {
         </form>
         
         <button 
-          onClick={() => navigate('/')}
+          onClick={onBackToLogin}
           className="mt-4 w-full text-center text-indigo-600 hover:text-indigo-800 font-medium"
         >
           ← Back to Login

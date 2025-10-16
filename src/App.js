@@ -19,7 +19,7 @@ import startupImage from './images/startup-image.png';
 import businessImage from './images/existing-business-image.png';
 import investorImage from './images/investor-image.png';
 import roleSelectionBackground from './images/role-selection-homepage.jpg';
-import ResetPassword from './ResetPassword';
+import ResetPasswordPage from './ResetPassword';
 import { canAccessFeature } from './utils/permissions';
 
 // Use environment variable for API base URL
@@ -247,7 +247,7 @@ const MessagesView = ({ currentUser }) => {
 };
 
 // Reset Password Page Component
-const ResetPasswordPage = ({ onBackToMain }) => {
+const ResetPassword = ({ onBackToMain }) => {
   const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -456,14 +456,11 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  if (!currentUser) {
-  return <div className="p-12 text-center">Please log in to view dashboard</div>;
-}
-
   useEffect(() => {
+  // Only fetch if currentUser exists
+    if (currentUser) {
     const fetchDashboardData = async () => {
       try {
-        
         // Fetch stats
         const statsRes = await fetch(`${API_BASE}/dashboard/stats`, {
           headers: { Authorization: `Bearer ${currentUser.token}` }
@@ -484,17 +481,23 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
         setLoading(false);
       }
     };
-
-    // Only fetch if currentUser exists
-    if (currentUser) {
       fetchDashboardData();
+    } else {
+      setLoading(false);
     }
   }, [currentUser]); // Add currentUser as dependency
 
+  // Handle loading state
   if (loading) {
     return <div className="p-12 text-center">Loading dashboard...</div>;
   }
 
+  // Handle no currentUser
+  if (!currentUser) {
+    return <div className="p-12 text-center">Please log in to view dashboard</div>;
+  }
+  
+  // Handle no stats
   if (!stats) {
     return <div className="p-12 text-center text-red-500">Failed to load dashboard data</div>;
   }
@@ -517,17 +520,16 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
     ];
 
     // Add tier-specific actions
-  if (currentUser) {
-    if (canAccessFeature(currentUser, 'video_calls')) {
+    if (currentUser && canAccessFeature(currentUser, 'video_calls')) {
       actions.push({ id: 'video', label: 'Video Calls', icon: Video, feature: 'video_calls' });
     }
-    if (canAccessFeature(currentUser, 'analytics')) {
+    if (currentUser && canAccessFeature(currentUser, 'analytics')) {
       actions.push({ id: 'analytics', label: 'Analytics', icon: BarChart3, feature: 'analytics' });
     }
-    if (canAccessFeature(currentUser, 'project_management')) {
+    if (currentUser && canAccessFeature(currentUser, 'project_management')) {
       actions.push({ id: 'projects', label: 'Projects', icon: Briefcase, feature: 'project_management' });
     }
-  }
+  
     return actions;
   };
 
@@ -535,7 +537,7 @@ const DashboardView = ({ currentUser, setActiveTab }) => {
   const filteredActivity = recentActivity.filter(activity => {
     // Only filter if currentUser exists
     if (!currentUser) return true;
-    
+
     if (activity.type === 'message' && !canAccessFeature(currentUser, 'text_chat')) {
       return false;
     }
